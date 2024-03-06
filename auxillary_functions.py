@@ -1,6 +1,7 @@
 import numpy as np
 import numba as nb
 
+np.random.seed(2)
 @nb.njit()
 def distance_exp(x, power = 2.0, scaler = 1.0):
 
@@ -34,4 +35,7 @@ def generate_voronoi(density:float,power:float,scaler:float, xmesh, ymesh):
 
     return output
 
+@nb.njit()
+def standard_eroder():
+    pass
 

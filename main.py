@@ -36,6 +36,16 @@ class base_terrain_generator:
 
         self.heightvalues = z
 
+    def add_tilt(self,xcomp:float = 0.0,ycomp:float = 0.0):
+
+        normal_vector = np.array([xcomp,ycomp,1.0])
+        normal_vector = normal_vector/np.sqrt(np.sum(normal_vector**2))
+
+        plus_z = (normal_vector[0]*self.xmesh + normal_vector[1]*self.ymesh)/(-normal_vector[2])
+
+        self.heightvalues = self.heightvalues + plus_z
+        self.heightvalues = self.heightvalues/np.amax(self.heightvalues)
+
     def standard_eroder(self):
 
         pass
@@ -60,8 +70,9 @@ class base_terrain_generator:
 
 
 
-test = base_terrain_generator(2000,1000,0.01)
-test.regenerate_voronoi_heights(0.1,1.5,0.5)
+test = base_terrain_generator(4000,2000,0.005)
+test.regenerate_voronoi_heights(0.2,1.5,0.5)
+test.add_tilt(0.05,0.0)
 plt.imshow(test.heightvalues)
 plt.show()
 
