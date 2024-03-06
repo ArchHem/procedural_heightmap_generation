@@ -11,8 +11,8 @@ class base_terrain_generator:
         :param size_y: Number of pixels in y-axis
         :param scale_factor: "Distance" that a pixel corresponds to
         """
-        xrange = np.array(range(0,size_x), dtype="Float64") * scale_factor
-        yrange = np.array(range(0,size_y), dtype="Float64") * scale_factor
+        xrange = np.array(range(0,size_x)) * scale_factor
+        yrange = np.array(range(0,size_y)) * scale_factor
 
         xmesh, ymesh = np.meshgrid(xrange,yrange)
 
@@ -27,12 +27,16 @@ class base_terrain_generator:
 
         pass
 
-    def regenerate_voronoi_heights(self,degree):
+    def regenerate_voronoi_heights(self,density,power,scaler):
 
-        pass
+        z = generate_voronoi(density,power,scaler,self.xmesh,self.ymesh)
+
+        self.heightvalues = z
 
 
 
 
+test = base_terrain_generator(20,10,1.0)
 
+test.regenerate_voronoi_heights(0.1,2.0,0.5)
 
