@@ -10,6 +10,9 @@ class base_terrain_generator:
         :param size_x: Number of pixels in x-axis
         :param size_y: Number of pixels in y-axis
         :param scale_factor: "Distance" that a pixel corresponds to
+        generates:
+        :xmesh, ymesh: stores meshgrid-like coordinates of each pixel
+        :heightvalues: stores the 'height'. Internal methods assume it ranges from 0.0 to 1.0
         """
         xrange = np.array(range(0,size_x)) * scale_factor
         yrange = np.array(range(0,size_y)) * scale_factor
@@ -23,8 +26,8 @@ class base_terrain_generator:
         self.ymesh = ymesh
         self.heightvalues = heightvalues
 
-    def regenerate_perlin_heights(self,):
-
+    def regenerate_perlin_heights(self,scaler):
+        #TODO!!!!!!
         pass
 
     def regenerate_voronoi_heights(self,density,power,scaler):
@@ -33,10 +36,32 @@ class base_terrain_generator:
 
         self.heightvalues = z
 
+    def standard_eroder(self):
+
+        pass
+
+    def regenerate_custom(self,array):
+
+        xlen = array.shape[1]
+        ylen = array.shape[0]
+
+        xrange = np.array(range(0, xlen)) * self.scale
+        yrange = np.array(range(0, ylen)) * self.scale
+
+        xmesh, ymesh = np.meshgrid(xrange, yrange)
+
+        self.xmesh = xmesh
+        self.ymesh = ymesh
+        self.heightvalues = array
 
 
 
-test = base_terrain_generator(20,10,1.0)
 
-test.regenerate_voronoi_heights(0.1,2.0,0.5)
+
+
+
+test = base_terrain_generator(2000,1000,0.01)
+test.regenerate_voronoi_heights(0.1,1.5,0.5)
+plt.imshow(test.heightvalues)
+plt.show()
 
