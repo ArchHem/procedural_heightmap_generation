@@ -34,8 +34,42 @@ def generate_voronoi(density:float,power:float,scaler:float, xmesh, ymesh):
             output[x,y] = local_color
 
     return output
+@nb.njit()
+def get_force(heightmap, x, y, xmesh, ymesh, mu):
+
+    #calculate best estimate for gradient
+
+    xrange = xmesh[0,:]
+    yrange = ymesh[:,0]
+
+    dx = np.abs(xrange - x)
+    dy = np.abs(yrange - y)
+
+    id_x = np.argmin(dx)
+    id_y = np.argmin(dy)
+
+    if id_x == 0 or id_y == 0 or id_x == len(dx) or id_y == len(dy):
+        #catch edge cases
+        return None
+
+    else:
+        #calculate 'gradient'
+
+        grad_x = (heightmap[id_y, id_x + 1] - heightmap[id_y, id_x-1]) / (xrange[id_x + 1] - xrange[id_x - 1])
+        grad_y = (heightmap[id_y + 1, id_x] - heightmap[id_y - 1, id_x]) / (yrange[id_y + 1] - yrange[id_y - 1])
+
+        gradient = np.array([grad_x, grad_y])
+
+        return gradient
+
+
+
+
 
 @nb.njit()
-def standard_eroder():
+def simple_drop_erosion(heightmap, xmesh, ymesh, time_steps, dt = 0.01, evap_rate = 0.02,
+                        volume = 0.02, mass = 1.0, a_tol = 1e-4):
+
     pass
+
 
