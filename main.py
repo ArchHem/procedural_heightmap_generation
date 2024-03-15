@@ -74,7 +74,9 @@ test = base_terrain_generator(4000,2000,0.005)
 
 test.regenerate_voronoi_heights(0.2,1.5,0.5)
 test.add_tilt(0.05,0.0)
-plt.imshow(test.heightvalues)
-print(get_force(test.heightvalues,19.0,9.0,test.xmesh,test.ymesh,1.0))
+
+
+y = multi_drop_erosion(test.heightvalues, test.xmesh, test.ymesh)
+plt.imshow(y)
 plt.show()
 
