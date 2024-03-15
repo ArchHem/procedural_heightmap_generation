@@ -70,13 +70,14 @@ class base_terrain_generator:
 
 
 
-test = base_terrain_generator(4000,2000,0.005)
+test = base_terrain_generator(2000,1000,0.01)
 
 test.regenerate_voronoi_heights(0.2,1.5,0.5)
 test.add_tilt(0.05,0.0)
 
 
 y = multi_drop_erosion(test.heightvalues, test.xmesh, test.ymesh)
+
 plt.imshow(y)
 plt.show()
 

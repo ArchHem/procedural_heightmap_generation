@@ -49,7 +49,7 @@ def get_force(heightmap, x, y, vx, vy, xmesh, ymesh, m, g, mu):
     id_x = np.argmin(dx)
     id_y = np.argmin(dy)
 
-    if id_x == 0 or id_y == 0 or id_x == len(dx) or id_y == len(dy):
+    if id_x == 0 or id_y == 0 or id_x == (len(dx) - 1) or id_y == (len(dy) - 1):
         #catch edge cases
         #will be used later
         arr = np.array([np.nan, np.nan])
@@ -59,6 +59,7 @@ def get_force(heightmap, x, y, vx, vy, xmesh, ymesh, m, g, mu):
         #calculate 'gradient'
 
         grad_x = (heightmap[id_y, id_x + 1] - heightmap[id_y, id_x-1]) / (xrange[id_x + 1] - xrange[id_x - 1])
+
         grad_y = (heightmap[id_y + 1, id_x] - heightmap[id_y - 1, id_x]) / (yrange[id_y + 1] - yrange[id_y - 1])
 
         normal_vector = np.array([-grad_x, -grad_y, 1])
@@ -97,9 +98,9 @@ def get_closest_grid(xmesh, ymesh, x, y):
 
 
 
-#@nb.njit(fastmath = True, cache = True)
-def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.01,
-                        evap_rate = 0.02, g = 0.1, mu = 0.02, particle_volume = 0.02,
+@nb.njit(fastmath = True, cache = True)
+def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.05,
+                        evap_rate = 0.05, g = 0.1, mu = 0.02, particle_volume = 0.02,
                         initial_liquid_mass = 1.0, mtc = 0.0005, equil_concen = 0.5, tol = 1e-3):
 
     maxx = np.amax(xmesh)
@@ -115,7 +116,8 @@ def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.01,
 
     while True:
         lforce = get_force(heightmap,x,y,vx,vy,xmesh,ymesh,m,g,mu)
-        if lforce.any() == np.nan:
+        if lforce[0] == np.nan:
+
             return heightmap
 
         else:
@@ -126,11 +128,12 @@ def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.01,
             d_sediment_mass = delta_concetration * particle_volume * (m)**2 / m_liquid
 
             m_sedi = m_sedi + d_sediment_mass
-            m_liquid = m_liquid * (1 - evap_rate) * dt
+            m_liquid = m_liquid * (1 - evap_rate * dt)
 
             if m_liquid < tol:
                 #if drop evaporated, deposit
                 cix, ciy = get_closest_grid(xmesh, ymesh, x, y)
+
 
                 heightmap[ciy, cix] = heightmap[ciy, cix] + m_sedi
                 return heightmap
@@ -149,17 +152,19 @@ def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.01,
 
         heightmap[ciy, cix] = heightmap[ciy, cix] - d_sediment_mass
 
-#@nb.njit(fastmath = True, cache = True)
-def multi_drop_erosion(heightmap, xmesh, ymesh, dt = 0.01, number_of_particles = 10000,
-                        evap_rate = 0.03, g = 0.1, mu = 0.02, particle_volume = 0.02,
-                        initial_liquid_mass = 1.0, mtc = 0.005, equil_concen = 0.5, tol = 1e-3):
+@nb.njit(fastmath = True, cache = True)
+def multi_drop_erosion(heightmap, xmesh, ymesh, dt = 0.05, number_of_particles = 100000,
+                        evap_rate = 0.07, g = 0.5, mu = 0.02, particle_volume = 0.2,
+                        initial_liquid_mass = 1.0, mtc = 0.2, equil_concen = 0.5, tol = 1e-3):
 
     for i in range(number_of_particles):
         heightmap = simple_drop_erosion(heightmap, xmesh, ymesh, dt = dt,
                         evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
                         initial_liquid_mass = initial_liquid_mass, mtc = mtc,
                                         equil_concen = equil_concen, tol = tol)
-        print(heightmap)
+
+        print(i/number_of_particles)
+
 
     return heightmap
 
