@@ -153,9 +153,9 @@ def simple_drop_erosion(heightmap, xmesh, ymesh, dt = 0.05,
         heightmap[ciy, cix] = heightmap[ciy, cix] - d_sediment_mass
 
 @nb.njit(fastmath = True, cache = True)
-def multi_drop_erosion(heightmap, xmesh, ymesh, dt = 0.05, number_of_particles = 100000,
-                        evap_rate = 0.07, g = 0.5, mu = 0.02, particle_volume = 0.2,
-                        initial_liquid_mass = 1.0, mtc = 0.2, equil_concen = 0.5, tol = 1e-3):
+def multi_drop_erosion(heightmap, xmesh, ymesh, dt = 0.05, number_of_particles = 1000,
+                        evap_rate = 0.03, g = 0.5, mu = 0.02, particle_volume = 0.2,
+                        initial_liquid_mass = 1.0, mtc = 0.05, equil_concen = 0.5, tol = 1e-3):
 
     for i in range(number_of_particles):
         heightmap = simple_drop_erosion(heightmap, xmesh, ymesh, dt = dt,
