@@ -76,7 +76,7 @@ test.regenerate_voronoi_heights(0.2,1.5,0.5)
 test.add_tilt(0.05,0.0)
 
 
-y = multi_drop_erosion(test.heightvalues, test.xmesh, test.ymesh)
+y = full_erosion(test.heightvalues, test.xmesh, test.ymesh)
 y = y / np.amax(y)
 print(np.amax(y))
 plt.imshow(y, cmap = 'hot')
