@@ -11,6 +11,7 @@ class base_terrain_generator:
         :param size_y: Number of pixels in y-axis
         :param scale_factor: "Distance" that a pixel corresponds to
         generates:
+        :param height_scaling: Highest possible point of the starting texture
         :xmesh, ymesh: stores meshgrid-like coordinates of each pixel
         :heightvalues: stores the 'height'. Internal methods assume it ranges from 0.0 to 1.0
         """
@@ -32,20 +33,35 @@ class base_terrain_generator:
         pass
 
     def regenerate_voronoi_heights(self,density,power,scaler):
+        """
+
+        :param density:
+        :param power:
+        :param scaler:
+        :return:
+        """
 
         z = generate_voronoi(density,power,scaler,self.xmesh,self.ymesh)
 
         self.heightvalues = z * self.height_scaling
 
-    def add_tilt(self,xcomp:float = 0.0,ycomp:float = 0.0):
+    def add_tilt(self,xcomp:float = 0.0, ycomp:float = 0.0, local_scaler:float = 1.0):
+        """
+
+        :param xcomp:
+        :param ycomp:
+        :param local_scaler:
+        :return:
+        """
 
         normal_vector = np.array([xcomp,ycomp,1.0])
         normal_vector = normal_vector/np.sqrt(np.sum(normal_vector**2))
 
         plus_z = (normal_vector[0]*self.xmesh + normal_vector[1]*self.ymesh)/(-normal_vector[2])
 
-        self.heightvalues = self.heightvalues + plus_z
-        self.heightvalues = self.heightvalues/np.amax(self.heightvalues) * self.height_scaling
+        self.heightvalues = self.heightvalues + plus_z * self.height_scaling * local_scaler
+        self.heightvalues = self.heightvalues
+
 
     def standard_eroder(self):
 
@@ -74,12 +90,13 @@ class base_terrain_generator:
 test = base_terrain_generator(256,256,1.0)
 
 test.regenerate_voronoi_heights(0.0001,1.5,0.001)
-test.add_tilt(0.0,0.0)
+test.add_tilt(0.0,0.0002)
+plt.imshow(test.heightvalues, cmap = 'gray')
 
 
 y = all_erosion(test.heightvalues, test.xmesh, test.ymesh, test.scale)
 
-
-plt.imshow(test.heightvalues, cmap = 'gray')
+fig, ax = plt.subplots()
+ax.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 

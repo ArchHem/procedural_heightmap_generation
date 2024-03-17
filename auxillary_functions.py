@@ -158,7 +158,7 @@ def batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, dt = 1.0,
                         mtc = mtc, tol = tol, max_steps = max_steps)
     return result
 
-@nb.njit(fastmath = True, cache = True)
+@nb.njit(fastmath = True)
 def all_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, N_batches = 10000, dt = 1.0,
                         evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
                         mtc = 0.1, tol = 1e-2, max_steps = 1000):
