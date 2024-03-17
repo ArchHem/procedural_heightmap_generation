@@ -163,9 +163,9 @@ def batch_erosion(heightmap, xmesh, ymesh, dt = 0.05, N_particles = 100,
     return heightmap
 
 
-def full_erosion(heightmap, xmesh, ymesh, N_batches = 200, dt = 0.1, N_particles = 100,
-                        evap_rate = 0.05, g = 0.1, mu = 0.02, particle_volume = 0.02,
-                        mtc = 0.02, tol = 1e-2, max_steps = 1000):
+def full_erosion(heightmap, xmesh, ymesh, N_batches = 2000, dt = 1.0, N_particles = 5,
+                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 0.02,
+                        mtc = 0.1, tol = 1e-2, max_steps = 1000):
 
     for j in tqdm(range(N_batches)):
         heightmap = batch_erosion(heightmap, xmesh, ymesh, dt = dt, N_particles = N_particles,

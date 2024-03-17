@@ -5,7 +5,7 @@ from auxillary_functions import *
 
 class base_terrain_generator:
 
-    def __init__(self,size_x:int, size_y:int, scale_factor:float = 1.0):
+    def __init__(self,size_x:int, size_y:int, scale_factor:float = 1.0, height_scaling:float = 60):
         """
         :param size_x: Number of pixels in x-axis
         :param size_y: Number of pixels in y-axis
@@ -24,6 +24,7 @@ class base_terrain_generator:
         self.scale = scale_factor
         self.xmesh = xmesh
         self.ymesh = ymesh
+        self.height_scaling = height_scaling
         self.heightvalues = heightvalues
 
     def regenerate_perlin_heights(self,scaler):
@@ -34,7 +35,7 @@ class base_terrain_generator:
 
         z = generate_voronoi(density,power,scaler,self.xmesh,self.ymesh)
 
-        self.heightvalues = z
+        self.heightvalues = z * self.height_scaling
 
     def add_tilt(self,xcomp:float = 0.0,ycomp:float = 0.0):
 
@@ -70,15 +71,15 @@ class base_terrain_generator:
 
 
 
-test = base_terrain_generator(2000,1000,0.01)
+test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_voronoi_heights(0.2,1.5,0.5)
-test.add_tilt(0.05,0.0)
+test.regenerate_voronoi_heights(0.0001,1.5,0.001)
+test.add_tilt(0.0,0.0)
 
 
 y = full_erosion(test.heightvalues, test.xmesh, test.ymesh)
-y = y / np.amax(y)
-print(np.amax(y))
-plt.imshow(y, cmap = 'hot')
+
+
+plt.imshow(test.heightvalues, cmap = 'hot')
 plt.show()
 
