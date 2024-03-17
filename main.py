@@ -45,7 +45,7 @@ class base_terrain_generator:
         plus_z = (normal_vector[0]*self.xmesh + normal_vector[1]*self.ymesh)/(-normal_vector[2])
 
         self.heightvalues = self.heightvalues + plus_z
-        self.heightvalues = self.heightvalues/np.amax(self.heightvalues)
+        self.heightvalues = self.heightvalues/np.amax(self.heightvalues) * self.height_scaling
 
     def standard_eroder(self):
 
@@ -77,9 +77,9 @@ test.regenerate_voronoi_heights(0.0001,1.5,0.001)
 test.add_tilt(0.0,0.0)
 
 
-y = full_erosion(test.heightvalues, test.xmesh, test.ymesh)
+y = all_erosion(test.heightvalues, test.xmesh, test.ymesh, test.scale)
 
 
-plt.imshow(test.heightvalues, cmap = 'hot')
+plt.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 

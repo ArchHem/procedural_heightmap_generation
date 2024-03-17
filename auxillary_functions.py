@@ -37,98 +37,84 @@ def generate_voronoi(density:float,power:float,scaler:float, xmesh, ymesh):
 
     return output
 
+@nb.njit(fastmath = True, cache = True)
+def get_closest_grid(x, y, scale):
 
-def get_closest_grid(xmesh, ymesh, pos_vector):
-    xrange = xmesh[0, :]
-    yrange = ymesh[:, 0]
-
-    yrange = yrange.reshape(1, len(yrange))
-    xrange = xrange.reshape(1, len(xrange))
-
-    x = pos_vector[:, 0:1]
-    y = pos_vector[:, 1:2]
-
-    dx = np.abs(xrange - x)
-    dy = np.abs(yrange - y)
-
-    id_x = np.argmin(dx, axis = 1)
-    id_y = np.argmin(dy, axis = 1)
+    id_x = int(x/scale)
+    id_y = int(y/scale)
 
     return id_x, id_y
 
-
+@nb.njit(fastmath = True, cache = True)
 def not_in_texture(xmesh, ymesh, idx, idy):
 
-    max_idx = xmesh.shape[1] - 2
-    max_idy = ymesh.shape[0] - 2
-    return np.where((idx >= max_idx) | (idy >= max_idy) | (idx <= 1) | (idy <= 1))
+    N_y, N_x = xmesh.shape
+
+    if idx <= 0 or idy <= 0 or idx >= (N_x - 1) or idy >= (N_y - 1):
+        return True
+    else:
+        return False
 
 
-def get_accel(heightmap, posvec, velocvec, xmesh, ymesh, g, mu):
+@nb.njit(fastmath = True, cache = True)
+def get_accel(heightmap, x, y, vx, vy, g, mu, scale):
 
     #calculate best estimate for gradient
 
-    xrange = xmesh[0, :]
-    yrange = ymesh[:, 0]
+    id_x, id_y = get_closest_grid(x, y, scale)
 
-    N_partics = posvec.shape[0]
+    grad_x = (heightmap[id_y, id_x + 1] - heightmap[id_y, id_x-1]) / (2 * scale)
 
-    id_x, id_y = get_closest_grid(xmesh, ymesh, posvec)
+    grad_y = (heightmap[id_y + 1, id_x] - heightmap[id_y - 1, id_x]) / (2 * scale)
 
-    grad_x = (heightmap[id_y, id_x + 1] - heightmap[id_y, id_x-1]) / (xrange[id_x + 1] - xrange[id_x - 1])
+    normal_vector = np.zeros((3,))
+    normal_vector[0] = -grad_x
+    normal_vector[1] = -grad_y
+    normal_vector[2] = 1
 
-    grad_y = (heightmap[id_y + 1, id_x] - heightmap[id_y - 1, id_x]) / (yrange[id_y + 1] - yrange[id_y - 1])
+    normal_vector = normal_vector / np.sqrt(np.sum(normal_vector**2))
 
-    normal_vector = np.zeros((len(grad_x),3))
-    normal_vector[:,0] = -grad_x
-    normal_vector[:,1] = -grad_y
-    normal_vector[:,2] = 1
+    n_force_x = g * normal_vector[0]
+    n_force_y = g * normal_vector[1]
 
-    normal_vector = normal_vector / np.sqrt(np.sum(normal_vector**2, axis = 1)).reshape(N_partics,1)
+    f_force = g * normal_vector[2] * mu
 
-    n_force_x = g * normal_vector[:,0]
-    n_force_y = g * normal_vector[:,1]
-
-    f_force = g * normal_vector[:,2] * mu
-
-    f_force_x = -velocvec[:,0] * f_force
-    f_force_y = -velocvec[:,1] * f_force
+    f_force_x = -vx * f_force
+    f_force_y = -vy * f_force
 
     force_x = n_force_x + f_force_x
     force_y = n_force_y + f_force_y
 
-    total_force = np.zeros((len(grad_x),2))
-    total_force[:,0] = force_x
-    total_force[:,1] = force_y
+    total_accel = np.zeros((3,))
+    total_accel[0] = force_x
+    total_accel[1] = force_y
 
-    indeces_to_stop = not_in_texture(xmesh, ymesh, id_x, id_y)
+    total_accel[2] = g * normal_vector[2]
 
-    return velocvec, total_force, indeces_to_stop
+    return total_accel
 
-
-def batch_erosion(heightmap, xmesh, ymesh, dt = 0.05, N_particles = 100,
+@nb.njit(fastmath = True, cache = True)
+def simple_erosion(heightmap, xmesh, ymesh, scale, dt = 0.05,
                         evap_rate = 0.05, g = 0.1, mu = 0.02, particle_volume = 0.02,
                         mtc = 0.02, tol = 1e-3, max_steps = 1000):
 
+    d_heights = np.zeros_like(heightmap)
     maxx = xmesh[0,-2]
     maxy = ymesh[-2,0]
 
-    minx = xmesh[0,2]
-    miny = ymesh[2,0]
+    minx = xmesh[0,1]
+    miny = ymesh[1,0]
 
-    x = np.random.uniform(minx,maxx,N_particles)
-    y = np.random.uniform(miny,maxy,N_particles)
+    x = np.random.uniform(minx,maxx)
+    y = np.random.uniform(miny,maxy)
 
-    posvec = np.zeros((N_particles,2))
-    posvec[:,0] = x
-    posvec[:,1] = y
-
-    velvec = np.zeros((N_particles,2))
+    vx = 0.0
+    vy = 0.0
 
     og_vol = particle_volume
     truetol = tol * og_vol
 
-    sediment_content = np.zeros(N_particles)
+    sediment_content = 0.0
 
     for i in range(max_steps):
 
@@ -137,42 +123,58 @@ def batch_erosion(heightmap, xmesh, ymesh, dt = 0.05, N_particles = 100,
         if particle_volume < truetol:
             break
 
-        newvec, newaccel, termination = get_accel(heightmap,posvec,velvec,xmesh,ymesh, g, mu)
+        accel_vec = get_accel(heightmap, x, y, vx, vy, g, mu, scale)
 
-        potential_new_locs = posvec + dt * newvec
+        x += vx
+        y += vy
 
-        checker_id_x, checker_id_y = get_closest_grid(xmesh, ymesh, potential_new_locs)
-        to_nullify = not_in_texture(xmesh,ymesh,checker_id_x,checker_id_y)
+        vx += accel_vec[0]
+        vy += accel_vec[1]
 
-        newvec[to_nullify] = 0.0
-        newaccel[to_nullify] = 0.0
+        newidx, newidy = get_closest_grid(x,y,scale)
+        if not_in_texture(xmesh, ymesh, newidx, newidy):
+            #terminate edge casses
+            break
 
-        posvec += newvec*dt
-        velvec += newaccel*dt
+        #set equil. concentration to be proportinal to speed and z-acceleration
 
-        c_eq = particle_volume * np.sqrt(np.sum(velvec**2, axis = 1))
-
+        c_eq = particle_volume * np.sqrt(vx**2 + vy**2) * np.abs(accel_vec[2])
+        #not exactly physical, but close approx
         sediment_content = mtc * (-sediment_content + c_eq)
+        id_x, id_y = get_closest_grid(x, y, scale)
+        d_heights[id_y, id_x] -= dt * particle_volume * sediment_content
 
-        sediment_content[termination] = 0.0
+    return d_heights
 
-        id_x, id_y = get_closest_grid(xmesh, ymesh, posvec)
-
-        heightmap[id_y, id_x] -= dt * particle_volume * sediment_content
-
-    return heightmap
-
-
-def full_erosion(heightmap, xmesh, ymesh, N_batches = 2000, dt = 1.0, N_particles = 5,
-                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 0.02,
+@nb.njit(fastmath = True, parallel = True, cache = True)
+def batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, dt = 1.0,
+                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
                         mtc = 0.1, tol = 1e-2, max_steps = 1000):
 
-    for j in tqdm(range(N_batches)):
-        heightmap = batch_erosion(heightmap, xmesh, ymesh, dt = dt, N_particles = N_particles,
+    result = np.zeros_like(heightmap)
+    for j in nb.prange(N_partics):
+        result += simple_erosion(heightmap, xmesh, ymesh, scale, dt = dt,
                         evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
                         mtc = mtc, tol = tol, max_steps = max_steps)
+    return result
+
+@nb.njit(fastmath = True, cache = True)
+def all_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, N_batches = 25000, dt = 1.0,
+                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
+                        mtc = 0.1, tol = 1e-2, max_steps = 1000):
+
+    for n in range(N_batches):
+        local_erosion = batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = N_partics, dt = dt,
+                        evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
+                        mtc = mtc, tol = tol, max_steps = max_steps)
+        heightmap += local_erosion
+        print(n/N_batches)
 
     return heightmap
+
+
+
+
 
 
 
