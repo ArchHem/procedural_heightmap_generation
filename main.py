@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numba as nb
 from auxillary_functions import *
 
+np.random.seed(2)
+
 class base_terrain_generator:
 
     def __init__(self,size_x:int, size_y:int, scale_factor:float = 1.0, height_scaling:float = 60):
@@ -45,6 +47,11 @@ class base_terrain_generator:
 
         self.heightvalues = z * self.height_scaling
 
+    def generate_voronoi_heights(self,density, power, scaler):
+        z = generate_voronoi(density, power, scaler, self.xmesh, self.ymesh)
+
+        return z * self.height_scaling
+
     def add_tilt(self,xcomp:float = 0.0, ycomp:float = 0.0, local_scaler:float = 1.0):
         """
 
@@ -63,9 +70,14 @@ class base_terrain_generator:
         self.heightvalues = self.heightvalues
 
 
-    def standard_eroder(self):
+    def standard_eroder(self,N_partics = 8, N_batches = 10000, dt = 1.0,
+                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
+                        mtc = 0.1, tol = 1e-2, max_steps = 1000):
 
-        pass
+        all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, N_batches = N_batches,
+                        N_partics = N_partics, dt = dt,
+                        evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
+                        mtc = mtc, tol = tol, max_steps = max_steps)
 
     def regenerate_custom(self,array):
 
@@ -93,10 +105,8 @@ test.regenerate_voronoi_heights(0.0001,1.5,0.001)
 test.add_tilt(0.0,0.0002)
 plt.imshow(test.heightvalues, cmap = 'gray')
 
-
-y = all_erosion(test.heightvalues, test.xmesh, test.ymesh, test.scale)
-
 fig, ax = plt.subplots()
-ax.imshow(test.heightvalues, cmap = 'gray')
+z = generate_simple_perlin_noise(test.xmesh, test.ymesh, 512)
+ax.imshow(z, cmap = 'gray')
 plt.show()
 

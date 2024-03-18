@@ -2,8 +2,65 @@ import numpy as np
 import numba as nb
 from tqdm import tqdm
 
+#@nb.njit(fastmath = True, cache = True)
+def fade(t):
+    return 6 * t**5 - 15 * t**4 + 10 * t**3
 
-np.random.seed(2)
+#@nb.njit(fastmath = True, cache = True)
+def mix(a, b, t):
+    return a + t * (b - a)
+
+#@nb.njit(fastmath = True, parallel = True)
+def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
+
+    np.random.seed(seed)
+
+    maxx = np.amax(xmesh)
+    maxy = np.amax(ymesh)
+
+    N_x = int(np.ceil(maxx / noise_scale)) + 2
+    N_y = int(np.ceil(maxy / noise_scale)) + 2
+
+    lxrange, lyrange = np.array(range(0,N_x)), np.array(range(0,N_y))
+    lxrange *= noise_scale
+    lyrange *= noise_scale
+
+    #generate random vectors
+
+    gradient_angles = np.random.uniform(0,2*np.pi,(len(lyrange), len(lxrange)))
+
+    grad_x = np.cos(gradient_angles)
+    grad_y = np.sin(gradient_angles)
+
+    number_of_y, number_of_x = len(lyrange), len(lxrange)
+
+    texture = np.zeros_like(xmesh)
+
+    for i in nb.prange(number_of_y):
+        for j in range(number_of_x):
+
+            lx = xmesh[i, j]
+            ly = ymesh[i, j]
+
+            bx = np.floor(lx / noise_scale).astype(int)
+            ux = np.ceil(lx / noise_scale).astype(int)
+
+            by = np.floor(ly / noise_scale).astype(int)
+            uy = np.ceil(ly / noise_scale).astype(int)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @nb.njit()
 def distance_exp(x, power = 2.0, scaler = 1.0):
 
@@ -146,7 +203,7 @@ def simple_erosion(heightmap, xmesh, ymesh, scale, dt = 0.05,
 
     return d_heights
 
-@nb.njit(fastmath = True, parallel = True, cache = True)
+@nb.njit(fastmath = True, parallel = True)
 def batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, dt = 1.0,
                         evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
                         mtc = 0.1, tol = 1e-2, max_steps = 1000):
@@ -171,6 +228,8 @@ def all_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, N_batches = 10000
         print(n/N_batches)
 
     return heightmap
+
+
 
 
 
