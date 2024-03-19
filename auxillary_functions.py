@@ -81,7 +81,7 @@ def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
     return final_text
 
 def generate_multi_layered_perlin_noise(xmesh, ymesh, base_scale, seed = 0,
-                                        N_octave = 5, persistence = 0.5,
+                                        N_octave = 5, persistence = 0.4,
                                         luna = 0.7):
 
     text_placeholder = np.zeros_like(xmesh)
@@ -183,6 +183,7 @@ def get_accel(heightmap, x, y, vx, vy, g, mu, scale):
 
     f_force = g * normal_vector[2] * mu
 
+    #ivelocnorm = 1/np.sqrt(vx**2 + vy**2)
     f_force_x = -vx * f_force
     f_force_y = -vy * f_force
 
@@ -244,9 +245,10 @@ def simple_erosion(heightmap, xmesh, ymesh, scale, dt = 0.05,
 
         c_eq = particle_volume * np.sqrt(vx**2 + vy**2) * np.abs(accel_vec[2])
         #not exactly physical, but close approx
-        sediment_content = mtc * (-sediment_content + c_eq)
+        cdiff = mtc * (-sediment_content + c_eq)
+        sediment_content += cdiff * dt
         id_x, id_y = get_closest_grid(x, y, scale)
-        d_heights[id_y, id_x] -= dt * particle_volume * sediment_content
+        d_heights[id_y, id_x] -= dt * particle_volume * cdiff
 
     return d_heights
 

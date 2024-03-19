@@ -87,7 +87,7 @@ class base_terrain_generator:
 
 
     def standard_eroder(self,N_partics = 8, N_batches = 10000, dt = 1.0,
-                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
+                        evap_rate = 0.001, g = 1.0, mu = 0.2, particle_volume = 1.0,
                         mtc = 0.1, tol = 1e-2, max_steps = 1000):
 
         all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, N_batches = N_batches,
@@ -117,13 +117,13 @@ class base_terrain_generator:
 
 test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_perlin_heights(50.0)
-test.add_tilt(0.0,0.0002)
+test.regenerate_perlin_heights(35,N_octave=3)
+test.add_tilt(0.0,0.0)
 plt.imshow(test.heightvalues, cmap = 'gray')
-
+z = test.heightvalues
 fig, ax = plt.subplots()
 
-test.standard_eroder(N_batches=100000, mtc = 0.3)
+test.standard_eroder(N_batches=20000, mtc = 0.1, evap_rate = 0.02, max_steps = 3000)
 ax.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 
