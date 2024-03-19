@@ -81,8 +81,8 @@ def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
     return final_text
 
 def generate_multi_layered_perlin_noise(xmesh, ymesh, base_scale, seed = 0,
-                                        N_octave = 5, persistence = 0.4,
-                                        luna = 0.7):
+                                        N_octave = 5, persistence = 0.7,
+                                        luna = 0.5):
 
     text_placeholder = np.zeros_like(xmesh)
 
