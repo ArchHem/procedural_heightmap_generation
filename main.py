@@ -30,17 +30,33 @@ class base_terrain_generator:
         self.height_scaling = height_scaling
         self.heightvalues = heightvalues
 
-    def regenerate_perlin_heights(self,scaler):
-        #TODO!!!!!!
-        pass
+    def regenerate_perlin_heights(self,base_scale, seed = 0,
+                                        N_octave = 5, persistence = 0.5,
+                                        luna = 0.7):
+        #TODO: Add docu here
+        text = generate_multi_layered_perlin_noise(self.xmesh,self.ymesh, base_scale, seed = seed,
+                                                   N_octave=N_octave, persistence=persistence, luna = luna)
+
+
+        self.heightvalues = self.height_scaling * text
+
+    def generate_perlin_heights(self,base_scale, seed = 0,
+                                        N_octave = 5, persistence = 0.5,
+                                        luna = 0.7):
+
+        text = generate_multi_layered_perlin_noise(self.xmesh, self.ymesh, base_scale, seed=seed,
+                                                   N_octave=N_octave, persistence=persistence, luna=luna)
+
+        return text
+
 
     def regenerate_voronoi_heights(self,density,power,scaler):
         """
 
-        :param density:
-        :param power:
-        :param scaler:
-        :return:
+        :param density: Number of points per volume area to gnereate cells from
+        :param power: what power we scale the exponential decay to
+        :param scaler: how the exponent's decay is scaled linearly
+        :return: updates self.heightvalues
         """
 
         z = generate_voronoi(density,power,scaler,self.xmesh,self.ymesh)
@@ -101,12 +117,13 @@ class base_terrain_generator:
 
 test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_voronoi_heights(0.0001,1.5,0.001)
+test.regenerate_perlin_heights(50.0)
 test.add_tilt(0.0,0.0002)
 plt.imshow(test.heightvalues, cmap = 'gray')
 
 fig, ax = plt.subplots()
-z = generate_simple_perlin_noise(test.xmesh, test.ymesh, 512)
-ax.imshow(z, cmap = 'gray')
+
+test.standard_eroder(N_batches=100000, mtc = 0.3)
+ax.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 

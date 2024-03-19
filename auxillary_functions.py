@@ -1,16 +1,9 @@
 import numpy as np
 import numba as nb
 from tqdm import tqdm
+from scipy.interpolate import RegularGridInterpolator
 
-#@nb.njit(fastmath = True, cache = True)
-def fade(t):
-    return 6 * t**5 - 15 * t**4 + 10 * t**3
 
-#@nb.njit(fastmath = True, cache = True)
-def mix(a, b, t):
-    return a + t * (b - a)
-
-#@nb.njit(fastmath = True, parallel = True)
 def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
 
     np.random.seed(seed)
@@ -21,32 +14,86 @@ def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
     N_x = int(np.ceil(maxx / noise_scale)) + 2
     N_y = int(np.ceil(maxy / noise_scale)) + 2
 
-    lxrange, lyrange = np.array(range(0,N_x)), np.array(range(0,N_y))
-    lxrange *= noise_scale
-    lyrange *= noise_scale
 
-    #generate random vectors
+
+    lxrange, lyrange = np.arange(-1, N_x) * noise_scale, np.arange(-1, N_y) * noise_scale
+
+
+    #generate random unit vectors
 
     gradient_angles = np.random.uniform(0,2*np.pi,(len(lyrange), len(lxrange)))
 
     grad_x = np.cos(gradient_angles)
     grad_y = np.sin(gradient_angles)
 
-    number_of_y, number_of_x = len(lyrange), len(lxrange)
+    midx, midy = (lxrange[1:] + lxrange[:-1])/2, (lyrange[1:] + lyrange[:-1])/2
 
-    texture = np.zeros_like(xmesh)
+    number_of_y, number_of_x = len(midy), len(midx)
 
-    for i in nb.prange(number_of_y):
+    texture = np.zeros((number_of_y, number_of_x))
+
+    #look into whether this can be done via einsum
+    for i in range(number_of_y):
         for j in range(number_of_x):
 
-            lx = xmesh[i, j]
-            ly = ymesh[i, j]
+            lx = midx[j]
+            ly = midy[i]
 
-            bx = np.floor(lx / noise_scale).astype(int)
-            ux = np.ceil(lx / noise_scale).astype(int)
+            bx = int(np.floor(lx / noise_scale))
+            ux = int(np.ceil(lx / noise_scale))
 
-            by = np.floor(ly / noise_scale).astype(int)
-            uy = np.ceil(ly / noise_scale).astype(int)
+            by = int(np.floor(ly / noise_scale))
+            uy = int(np.ceil(ly / noise_scale))
+
+            dx1 = lx - bx * noise_scale
+            dy1 = ly - by * noise_scale
+
+            dx2 = lx - bx * noise_scale
+            dy2 = -ly + uy * noise_scale
+
+            dx3 = -lx + ux * noise_scale
+            dy3 = ly - by * noise_scale
+
+            dx4 = -lx + ux * noise_scale
+            dy4 = -ly + uy * noise_scale
+
+            inn1 = dx1 * grad_x[by, bx] + dy1 * grad_y[by, bx]
+            inn2 = dx2 * grad_x[uy, bx] + dy2 * grad_y[uy, bx]
+            inn3 = dx3 * grad_x[by, ux] + dy3 * grad_y[by, ux]
+            inn4 = dx4 * grad_x[uy, ux] + dy4 * grad_y[uy, ux]
+
+            summed = inn1 + inn2 + inn3 + inn4
+
+            texture[i,j] = summed
+
+
+    #normalize to 0-1
+    texture -= np.min(texture)
+
+    texture /= np.amax(texture)
+
+    #construct interpolator
+
+    interp = RegularGridInterpolator((midy, midx), texture, method='cubic')
+
+    final_text = interp((ymesh,xmesh))
+
+    return final_text
+
+def generate_multi_layered_perlin_noise(xmesh, ymesh, base_scale, seed = 0,
+                                        N_octave = 5, persistence = 0.5,
+                                        luna = 0.7):
+
+    text_placeholder = np.zeros_like(xmesh)
+
+    for i in range(N_octave):
+        text_placeholder += luna**i * generate_simple_perlin_noise(xmesh, ymesh,
+                                                         noise_scale=base_scale * persistence**i,
+                                                                   seed = seed)
+    text_placeholder /= np.amax(text_placeholder)
+
+    return text_placeholder
+
 
 
 
