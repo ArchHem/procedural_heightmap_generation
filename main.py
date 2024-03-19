@@ -117,13 +117,14 @@ class base_terrain_generator:
 
 test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_perlin_heights(64,N_octave=3, seed = 0)
+test.regenerate_perlin_heights(64,N_octave=3, seed = 0, luna = 0.3)
+#test.regenerate_voronoi_heights(0.0005,2/3,0.001)
 test.add_tilt(0.0,0.000)
 plt.imshow(test.heightvalues, cmap = 'gray')
 z = test.heightvalues
 fig, ax = plt.subplots()
 
-test.standard_eroder(N_batches=20000, mtc = 0.1, evap_rate = 0.001, dt = 1.2, max_steps = 3000, mu = 0.1)
+test.standard_eroder(N_batches=20000, mtc = 0.1, evap_rate = 0.001, dt = 0.6, max_steps = 6000, mu = 0.1)
 ax.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 
