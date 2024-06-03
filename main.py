@@ -85,16 +85,6 @@ class base_terrain_generator:
         self.heightvalues = self.heightvalues + plus_z * self.height_scaling * local_scaler
         self.heightvalues = self.heightvalues
 
-
-    def standard_eroder(self,N_partics = 8, N_batches = 10000, dt = 1.0,
-                        evap_rate = 0.001, g = 1.0, mu = 0.2, particle_volume = 1.0,
-                        mtc = 0.1, tol = 1e-2, max_steps = 1000, mu_velo = 0.00005):
-
-        all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, N_batches = N_batches,
-                        N_partics = N_partics, dt = dt,
-                        evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
-                        mtc = mtc, tol = tol, max_steps = max_steps, mu_veloc=mu_velo)
-
     def regenerate_custom(self,array):
 
         xlen = array.shape[1]
@@ -109,23 +99,35 @@ class base_terrain_generator:
         self.ymesh = ymesh
         self.heightvalues = array
 
+    def standard_eroder(self,min_mass_ratio = 1e-3, init_mass = 1.0,
+                       g = 0.1, volume = 0.02, mu_fric = 0.2,
+                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8,
+                        N_batches  = 10000):
+
+        all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, min_mass_ratio = min_mass_ratio,
+                        init_mass = init_mass,
+                       g = g, volume = volume, mu_fric = mu_fric,
+                       max_timesteps = max_timesteps,  dt = dt,
+                        mtc = mtc, evap_rate = evap_rate, N_partics= N_partics, N_batches= N_batches)
 
 
+test = base_terrain_generator(1024,1024,0.25)
 
+test.regenerate_perlin_heights(64, N_octave=7, seed = 1, luna = 0.4)
+#test.add_tilt(0.05,0.02,0.01)
 
-
-
-test = base_terrain_generator(256,256,1.0)
-
-test.regenerate_perlin_heights(64,N_octave=7, seed = 2, luna = 0.3)
-#test.regenerate_voronoi_heights(0.0005,2/3,0.001)
-test.add_tilt(0.0,0.0)
 plt.imshow(test.heightvalues, cmap = 'gray')
-z = test.heightvalues
+z = test.heightvalues.copy()
 fig, ax = plt.subplots()
 
-test.standard_eroder(N_batches=40000, mtc = 0.05, evap_rate = 0.001, dt = 0.6, max_steps = 6000, mu = 0.2,
-                     g = 1.0, N_partics=10)
+test.standard_eroder(N_batches=40000, mtc = 0.1, evap_rate = 0.001, dt = 0.6, max_timesteps = 6000, mu_fric = 0.2,
+                     g = 1.0, N_partics=40, volume = 0.4)
+
+"""dmap = single_path_eroder(test.heightvalues,test.xmesh,test.ymesh,test.scale,
+                          evap_rate=0.001, mtc = 0.05, dt = 0.5, max_timesteps = 6000, mu_fric = 0.05,
+                            g = 1.0)"""
+
+
 ax.imshow(test.heightvalues, cmap = 'gray')
 plt.show()
 

@@ -3,7 +3,7 @@ import numba as nb
 from tqdm import tqdm
 from scipy.interpolate import RegularGridInterpolator
 
-
+nb.njit(fastmath = True, paralell = True, cache = True)
 def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
 
     np.random.seed(seed)
@@ -34,7 +34,7 @@ def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
 
     #look into whether this can be done via einsum
     for i in range(number_of_y):
-        for j in range(number_of_x):
+        for j in nb.prange(number_of_x):
 
             lx = midx[j]
             ly = midy[i]
@@ -80,13 +80,14 @@ def generate_simple_perlin_noise(xmesh, ymesh, noise_scale, seed = 0):
 
     return final_text
 
+nb.njit(fastmath = True, paralell = True)
 def generate_multi_layered_perlin_noise(xmesh, ymesh, base_scale, seed = 0,
                                         N_octave = 5, persistence = 0.7,
                                         luna = 0.5):
 
     text_placeholder = np.zeros_like(xmesh)
 
-    for i in range(N_octave):
+    for i in nb.prange(N_octave):
         text_placeholder += luna**i * generate_simple_perlin_noise(xmesh, ymesh,
                                                          noise_scale=base_scale * persistence**i,
                                                                    seed = seed)
@@ -94,25 +95,15 @@ def generate_multi_layered_perlin_noise(xmesh, ymesh, base_scale, seed = 0,
 
     return text_placeholder
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @nb.njit()
 def distance_exp(x, power = 2.0, scaler = 1.0):
 
     return np.exp(-np.abs(scaler) * x**power)
 
+@nb.njit(cache = True, fastmath = True)
+def ReLu(x):
+
+    return 0.5*(np.abs(x) + x)
 
 @nb.njit(fastmath = True, cache = True)
 def generate_voronoi(density:float,power:float,scaler:float, xmesh, ymesh):
@@ -159,128 +150,212 @@ def not_in_texture(xmesh, ymesh, idx, idy):
     else:
         return False
 
+@nb.njit(fastmath = True, cache = True)
+def get_normal(id_x, id_y, heightmap, scale):
+    """Utterly deranged way of defining local grid, but it works and faster than meshgrid manipulation in this case,
+    since we only interested in pairwise quantities"""
+    d = scale
+
+    z11 = heightmap[id_y, id_x]
+    z12 = heightmap[id_y, id_x+1]
+    z22 = heightmap[id_y+1, id_x+1]
+    z21 = heightmap[id_y + 1, id_x]
+    z20 = heightmap[id_y + 1, id_x -1]
+    z10 = heightmap[id_y, id_x -1]
+    z00 = heightmap[id_y-1, id_x-1]
+    z01 = heightmap[id_y-1, id_x]
+    z02 = heightmap[id_y-1, id_x + 1]
+
+    xdispl = np.array([0.0,d,d,0.0,-d,-d,-d,.0,d])
+    ydispl = np.array([0.0,0.0,d,d,d,0.0,-d,-d,-d])
+    zdispl = np.array([z11, z12, z22, z21, z20,z10,z00, z01, z02])
+    
+    lvectors = np.zeros((9,3))
+    lvectors[:, 0] = xdispl
+    lvectors[:, 1] = ydispl
+    lvectors[:, 2] = zdispl
+
+    """Visualizing the local indices, centered on [1,1] bellow
+    
+    storing order of x11, x12, x22, x21, x20, x10, x00, x01, x02
+    """
+
+    #calculate triangulated mesh' midpoints as seen bellow
+
+    """
+    [2,0]-[2,1]-[2,2]
+      |  X  |  X  |
+    [1,0]-[1,1]-[1,2]
+      |  X  |  X  |
+    [0,0]-[0,1]-[0,2]
+    
+    We need to interpolate the value of z the mid-points 'X'
+    and overwrite the corer values with them.
+    """
+
+    lvectors[2, 0:2] /= 2.
+    lvectors[4, 0:2] /= 2.
+    lvectors[6, 0:2] /= 2.
+    lvectors[8, 0:2] /= 2.
+
+    lvectors[2, 2] = (lvectors[0, 2] + lvectors[1, 2] + lvectors[2, 2] + lvectors[3, 2]) / 4
+    lvectors[4, 2] = (lvectors[0, 2] + lvectors[3, 2] + lvectors[4, 2] + lvectors[5, 2]) / 4
+    lvectors[6, 2] = (lvectors[0, 2] + lvectors[5, 2] + lvectors[6, 2] + lvectors[7, 2]) / 4
+    lvectors[8, 2] = (lvectors[0, 2] + lvectors[7, 2] + lvectors[8, 2] + lvectors[1, 2]) / 4
+
+    #calculate local normal vectors at 00 vertex
+    tot_normal = np.zeros((3))
+    for i in range(1,8):
+        vl = np.cross(lvectors[i],lvectors[i+1])
+        vl = vl / np.linalg.norm(vl)
+        tot_normal += vl
+
+    vl = np.cross(lvectors[8],lvectors[1])
+    vl = vl / np.linalg.norm(vl)
+    tot_normal += vl
+    tot_normal /= 8
+    tot_normal /= np.linalg.norm(tot_normal)
+
+    return tot_normal
 
 @nb.njit(fastmath = True, cache = True)
-def get_accel(heightmap, x, y, vx, vy, g, mu, scale, mu_veloc, area):
+def get_accel(x, y, vx, vy, vz, scale, mass, g, mu, heightmap):
+    
+    id_x, id_y = get_closest_grid(x,y,scale)
+    
+    smooth_normal = get_normal(id_x, id_y, heightmap, scale)
 
-    #calculate best estimate for gradient
+    smooth_tangent = np.array([vx,vy,vz])
 
-    id_x, id_y = get_closest_grid(x, y, scale)
+    norm = np.linalg.norm(smooth_tangent)
 
-    grad_x = (heightmap[id_y, id_x + 1] - heightmap[id_y, id_x-1]) / (2 * scale)
+    #deal with the edge case of zero velocity
 
-    grad_y = (heightmap[id_y + 1, id_x] - heightmap[id_y - 1, id_x]) / (2 * scale)
+    if np.linalg.norm(smooth_tangent) != 0.0:
+        smooth_tangent /= norm
 
-    normal_vector = np.zeros((3,))
-    normal_vector[0] = -grad_x
-    normal_vector[1] = -grad_y
-    normal_vector[2] = 1
+    else:
+        #execute a gram-schmidt procedure
+        prelim = smooth_normal + np.array([1.0,0.0,0.0])
+        prelim /= np.linalg.norm(prelim)
 
-    normal_vector = normal_vector / np.sqrt(np.sum(normal_vector**2))
-
-    n_force_x = g * normal_vector[0]
-    n_force_y = g * normal_vector[1]
-
+        smooth_tangent = prelim - np.sum(prelim*smooth_normal) * smooth_normal
+        smooth_tangent /= np.linalg.norm(smooth_tangent)
 
 
-    #ivelocnorm = 1/np.sqrt(vx**2 + vy**2)
-    f_force_x = - n_force_x * mu - vx * mu_veloc * area
-    f_force_y = - n_force_y * mu - vy * mu_veloc * area
+    smooth_binormal = np.cross(smooth_normal,smooth_tangent)
+    # this neglects teh curvature
 
-    force_x = n_force_x + f_force_x
-    force_y = n_force_y + f_force_y
+    #take projections of teh force into tangental, nomral and binormal directions
 
-    total_accel = np.zeros((3,))
-    total_accel[0] = force_x
-    total_accel[1] = force_y
+    #For the normal direction, we have |F_n| - m * g * N_z = m |v|^2 / r_curvature
+    #we assume that the RHS is negibaly small
 
-    total_accel[2] = g * normal_vector[2]
+    Fn_mag = smooth_normal[2] * mass * g
+    a_n = 0.0
+    a_t = (-mu * Fn_mag - mass * g * smooth_tangent[2])/mass
+    a_b = (-mass * g * smooth_binormal[2])/mass
 
-    return total_accel
+    lcord_acc = np.array([a_n, a_t, a_b])
 
-@nb.njit(fastmath = True, cache = True)
-def simple_erosion(heightmap, xmesh, ymesh, scale, dt = 0.05,
-                        evap_rate = 0.05, g = 0.1, mu = 0.02, particle_volume = 0.02,
-                        mtc = 0.02, tol = 1e-3, max_steps = 1000, mu_veloc = 0.5):
+    transform_matrix = np.zeros((3,3))
+    transform_matrix[0] = smooth_normal
+    transform_matrix[1] = smooth_tangent
+    transform_matrix[2] = smooth_binormal
 
-    d_heights = np.zeros_like(heightmap)
-    maxx = xmesh[0,-2]
-    maxy = ymesh[-2,0]
+    inverse_transform = np.linalg.inv(transform_matrix)
 
-    minx = xmesh[0,1]
-    miny = ymesh[1,0]
+    cart_accel = inverse_transform @ lcord_acc
 
-    x = np.random.uniform(minx,maxx)
-    y = np.random.uniform(miny,maxy)
+    ax, ay, az = cart_accel
 
-    vx = 0.0
-    vy = 0.0
+    return vx, vy, vz, ax, ay, az, id_x, id_y
 
-    og_vol = particle_volume
-    truetol = tol * og_vol
+@nb.njit(cache = True, fastmath = True)
+def single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                       g = 0.1, volume = 0.02, mu_fric = 0.2,
+                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05):
+
+    truetol = min_mass_ratio * init_mass
 
     sediment_content = 0.0
 
-    for i in range(max_steps):
-        area = (particle_volume)**(2/3)
-        particle_volume = area * (1 - evap_rate * dt)
+    maxx = xmesh[0, -2]
+    maxy = ymesh[-2, 0]
 
-        if particle_volume < truetol:
+    minx = xmesh[0, 1]
+    miny = ymesh[1, 0]
+
+    x = np.random.uniform(minx, maxx)
+    y = np.random.uniform(miny, maxy)
+    vx, vy, vz = 0.0, 0.0, 0.0
+    id_x, id_y = get_closest_grid(x,y,scale)
+    mass = init_mass
+
+    delta_erosion = np.zeros_like(heightmap)
+
+    for t in range(max_timesteps):
+
+        #move particle
+        vx, vy, vz, ax, ay, az, id_x, id_y = get_accel(x,y,vx,vy,vz,scale, mass, g, mu_fric, heightmap)
+        # terminate edge cases
+        if not_in_texture(xmesh, ymesh, id_x, id_y):
+
+
+            break
+        #mass is propotitonal to r^3, whereas the evaprtation rate is proptironal to r^2
+        evap_ratio = evap_rate * mass**(2/3)
+        mass -= dt*evap_ratio
+        volume -= dt*evap_ratio
+
+        if mass < truetol:
+
             break
 
-        accel_vec = get_accel(heightmap, x, y, vx, vy, g, mu, scale, mu_veloc, area)
+        #pick up/put down sedement
 
-        x += vx * dt
-        y += vy * dt
+        c_eq = volume * np.sqrt(vx**2 + vy**2 + vz**2)
 
-        vx += accel_vec[0] * dt
-        vy += accel_vec[1] * dt
-
-        newidx, newidy = get_closest_grid(x,y,scale)
-        if not_in_texture(xmesh, ymesh, newidx, newidy):
-            #terminate edge casses
-            break
-
-        #set equil. concentration to be proportinal to speed and z-acceleration
-
-        c_eq = particle_volume * np.sqrt(vx**2 + vy**2) * np.abs(accel_vec[2])
-        #not exactly physical, but close approx
         cdiff = mtc * (-sediment_content + c_eq)
         sediment_content += cdiff * dt
-        id_x, id_y = get_closest_grid(x, y, scale)
-        d_heights[id_y, id_x] -= dt * particle_volume * cdiff
 
-    return d_heights
+        x += vx
+        y += vz
+        vx += ax
+        vy += ay
+        vz += az
+
+        #deposit sediment
+        delta_erosion[id_y, id_x] -= dt * volume * cdiff
+
+    return delta_erosion
 
 @nb.njit(fastmath = True, parallel = True)
-def batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, dt = 1.0,
-                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
-                        mtc = 0.1, tol = 1e-2, max_steps = 1000, mu_veloc = 0.5):
+def batch_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                       g = 0.1, volume = 0.02, mu_fric = 0.2,
+                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8):
 
     result = np.zeros_like(heightmap)
     for j in nb.prange(N_partics):
-        result += simple_erosion(heightmap, xmesh, ymesh, scale, dt = dt,
-                        evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
-                        mtc = mtc, tol = tol, max_steps = max_steps, mu_veloc=mu_veloc)
+        result += single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio, init_mass,
+                       g, volume, mu_fric,
+                       max_timesteps,  dt,mtc, evap_rate)
     return result
 
 @nb.njit(fastmath = True)
-def all_erosion(heightmap, xmesh, ymesh, scale, N_partics = 8, N_batches = 10000, dt = 1.0,
-                        evap_rate = 0.001, g = 1.0, mu = 0.05, particle_volume = 1.0,
-                        mtc = 0.1, tol = 1e-2, max_steps = 1000, mu_veloc = 0.5):
+def all_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                       g = 0.1, volume = 0.02, mu_fric = 0.2,
+                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8,
+                        N_batches  = 10000):
 
     for n in range(N_batches):
-        local_erosion = batch_erosion(heightmap, xmesh, ymesh, scale, N_partics = N_partics, dt = dt,
-                        evap_rate = evap_rate, g = g, mu = mu, particle_volume = particle_volume,
-                        mtc = mtc, tol = tol, max_steps = max_steps, mu_veloc=mu_veloc)
+        local_erosion = batch_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio, init_mass,
+                       g, volume, mu_fric,
+                       max_timesteps,  dt, mtc, evap_rate, N_partics)
         heightmap += local_erosion
         print(n/N_batches)
 
     return heightmap
-
-
-
-
 
 
 
