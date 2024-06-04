@@ -1,0 +1,1 @@
+These folders store renders of the simulated, eroded terrains. All images created in blender, with the green-grey areas being colored based on the z component of teh smoothed, local normal. 
