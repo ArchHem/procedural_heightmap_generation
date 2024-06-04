@@ -111,9 +111,9 @@ class base_terrain_generator:
                         mtc = mtc, evap_rate = evap_rate, N_partics= N_partics, N_batches= N_batches)
 
 
-test = base_terrain_generator(1024,1024,0.25)
+test = base_terrain_generator(512,512,0.5)
 
-test.regenerate_perlin_heights(64, N_octave=7, seed = 1, luna = 0.4)
+test.regenerate_perlin_heights(64, N_octave=6, seed = 1, luna = 0.4)
 #test.add_tilt(0.05,0.02,0.01)
 
 plt.imshow(test.heightvalues, cmap = 'gray')
@@ -121,7 +121,7 @@ z = test.heightvalues.copy()
 fig, ax = plt.subplots()
 
 test.standard_eroder(N_batches=40000, mtc = 0.1, evap_rate = 0.001, dt = 0.6, max_timesteps = 6000, mu_fric = 0.2,
-                     g = 1.0, N_partics=40, volume = 0.4)
+                     g = 1.0, N_partics=10, volume = 0.4)
 
 """dmap = single_path_eroder(test.heightvalues,test.xmesh,test.ymesh,test.scale,
                           evap_rate=0.001, mtc = 0.05, dt = 0.5, max_timesteps = 6000, mu_fric = 0.05,
@@ -129,5 +129,12 @@ test.standard_eroder(N_batches=40000, mtc = 0.1, evap_rate = 0.001, dt = 0.6, ma
 
 
 ax.imshow(test.heightvalues, cmap = 'gray')
+from PIL import Image
+
+I = test.heightvalues
+I8 = (((I - I.min()) / (I.max() - I.min())) * 255.9).astype(np.uint8)
+
+img = Image.fromarray(I8)
+img.save("examps/512x512_3.png")
 plt.show()
 
