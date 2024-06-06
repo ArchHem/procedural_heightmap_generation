@@ -169,6 +169,7 @@ def get_normal(id_x, id_y, heightmap, scale):
     xdispl = np.array([0.0,d,d,0.0,-d,-d,-d,.0,d])
     ydispl = np.array([0.0,0.0,d,d,d,0.0,-d,-d,-d])
     zdispl = np.array([z11, z12, z22, z21, z20,z10,z00, z01, z02])
+    zdispl -= z11
     
     lvectors = np.zeros((9,3))
     lvectors[:, 0] = xdispl
@@ -219,7 +220,7 @@ def get_normal(id_x, id_y, heightmap, scale):
     return tot_normal
 
 @nb.njit(fastmath = True, cache = True)
-def get_accel(x, y, vx, vy, vz, scale, mass, g, mu, heightmap):
+def p1_get_accel(x, y, vx, vy, vz, scale, mass, g, mu, heightmap):
     
     id_x, id_y = get_closest_grid(x,y,scale)
     
@@ -272,9 +273,9 @@ def get_accel(x, y, vx, vy, vz, scale, mass, g, mu, heightmap):
     return vx, vy, vz, ax, ay, az, id_x, id_y
 
 @nb.njit(cache = True, fastmath = True)
-def single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
-                       g = 0.1, volume = 0.02, mu_fric = 0.2,
-                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05):
+def p1_single_path_eroder(heightmap, xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                          g = 0.1, volume = 0.02, mu_fric = 0.2,
+                          max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05):
 
     truetol = min_mass_ratio * init_mass
 
@@ -297,7 +298,7 @@ def single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, ini
     for t in range(max_timesteps):
 
         #move particle
-        vx, vy, vz, ax, ay, az, id_x, id_y = get_accel(x,y,vx,vy,vz,scale, mass, g, mu_fric, heightmap)
+        vx, vy, vz, ax, ay, az, id_x, id_y = p1_get_accel(x, y, vx, vy, vz, scale, mass, g, mu_fric, heightmap)
         # terminate edge cases
         if not_in_texture(xmesh, ymesh, id_x, id_y):
 
@@ -309,7 +310,7 @@ def single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, ini
         volume -= dt*evap_ratio
 
         if mass < truetol:
-
+            delta_erosion[id_y, id_x] += sediment_content
             break
 
         #pick up/put down sedement
@@ -331,27 +332,27 @@ def single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, ini
     return delta_erosion
 
 @nb.njit(fastmath = True, parallel = True)
-def batch_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
-                       g = 0.1, volume = 0.02, mu_fric = 0.2,
-                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8):
+def p1_batch_erosion(heightmap, xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                     g = 0.1, volume = 0.02, mu_fric = 0.2,
+                     max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8):
 
     result = np.zeros_like(heightmap)
     for j in nb.prange(N_partics):
-        result += single_path_eroder(heightmap,xmesh, ymesh, scale, min_mass_ratio, init_mass,
-                       g, volume, mu_fric,
-                       max_timesteps,  dt,mtc, evap_rate)
+        result += p1_single_path_eroder(heightmap, xmesh, ymesh, scale, min_mass_ratio, init_mass,
+                                        g, volume, mu_fric,
+                                        max_timesteps, dt, mtc, evap_rate)
     return result
 
 @nb.njit(fastmath = True)
-def all_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
-                       g = 0.1, volume = 0.02, mu_fric = 0.2,
-                       max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8,
-                        N_batches  = 10000):
+def p1_all_erosion(heightmap, xmesh, ymesh, scale, min_mass_ratio = 1e-3, init_mass = 1.0,
+                   g = 0.1, volume = 0.02, mu_fric = 0.2,
+                   max_timesteps = 1000, dt = 0.01, mtc = 0.02, evap_rate = 0.05, N_partics = 8,
+                   N_batches  = 10000):
 
     for n in range(N_batches):
-        local_erosion = batch_erosion(heightmap,xmesh, ymesh, scale, min_mass_ratio, init_mass,
-                       g, volume, mu_fric,
-                       max_timesteps,  dt, mtc, evap_rate, N_partics)
+        local_erosion = p1_batch_erosion(heightmap, xmesh, ymesh, scale, min_mass_ratio, init_mass,
+                                         g, volume, mu_fric,
+                                         max_timesteps, dt, mtc, evap_rate, N_partics)
         heightmap += local_erosion
         print(n/N_batches)
 
