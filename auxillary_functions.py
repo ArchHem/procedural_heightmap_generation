@@ -153,23 +153,23 @@ def get_closest_grid(x, y, scale):
 @nb.njit(fastmath = True, cache = True)
 def get_neighbors(x,y,scale):
 
-    id_x00 = np.floor(x/scale)
-    id_y00 = np.floor(y/scale)
+    id_x00 = int(np.floor(x/scale))
+    id_y00 = int(np.floor(y/scale))
 
     d_00 = np.sqrt((x - scale*id_x00 - scale/2)**2 + (y - scale*id_y00 - scale/2)**2)
 
-    id_x01 = np.floor(x / scale)
-    id_y01 = np.ceil(y / scale)
+    id_x01 = int(np.floor(x / scale))
+    id_y01 = int(np.ceil(y / scale))
 
     d_01 = np.sqrt((x - scale * id_x01 - scale / 2) ** 2 + (y - scale * id_y01 - scale / 2) ** 2)
 
-    id_x10 = np.ceil(x / scale)
-    id_y10 = np.floor(y / scale)
+    id_x10 = int(np.ceil(x / scale))
+    id_y10 = int(np.floor(y / scale))
 
     d_10 = np.sqrt((x - scale * id_x10 - scale / 2) ** 2 + (y - scale * id_y10 - scale / 2) ** 2)
 
-    id_x11 = np.ceil(x / scale)
-    id_y11 = np.ceil(y / scale)
+    id_x11 = int(np.ceil(x / scale))
+    id_y11 = int(np.ceil(y / scale))
 
     d_11 = np.sqrt((x - scale * id_x11 - scale / 2) ** 2 + (y - scale * id_y11 - scale / 2) ** 2)
 
@@ -303,7 +303,7 @@ def trace_single_drop(heightmap, xmesh, ymesh, scale, mass,
 
         """might wanna introduce a bias towards the velocity of the drop"""
 
-        w00, w01, w10, w11 = np.exp(-d_00**2), np.exp(-d_01**2), np.exp(-d_10**2), np.exp(-d_11**2)
+        w00, w01, w10, w11 = np.exp(-d_00**2 / 4), np.exp(-d_01**2 / 4), np.exp(-d_10**2 / 4), np.exp(-d_11**2 / 4)
 
         nor = w00 + w01 + w10 + w11
 
