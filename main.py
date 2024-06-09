@@ -101,8 +101,8 @@ class base_terrain_generator:
 
     def standard_eroder(self, mass = 1.0,
                       mu = 0.2, g = 1.0, evap_rate = 0.001, mtc = 0.2,
-                      density = 50, veloc_prop = 0.4, min_mass_ratio = 1e-3,
-                      dt = 0.5, max_timesteps = 6000, N_partics = 10, N_batches = 80000):
+                      density = 50, veloc_prop = 0.5, min_mass_ratio = 1e-3,
+                      dt = 0.5, max_timesteps = 6000, N_partics = 10, N_batches = 20000):
 
         self.heightvalues = all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, mass = mass,
                       mu = mu, g = g, evap_rate = evap_rate, mtc = mtc,
@@ -112,9 +112,9 @@ class base_terrain_generator:
 
 
 
-test = base_terrain_generator(512,512,1.0)
+test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_perlin_heights(128, N_octave=6, seed = 1, luna = 0.4)
+test.regenerate_perlin_heights(64, N_octave=3, seed = 1, luna = 0.4)
 #test.add_tilt(0.05,0.02,0.01)
 
 print('Initial heightmap generated!')
@@ -123,17 +123,9 @@ plt.imshow(test.heightvalues, cmap = 'gray')
 z = test.heightvalues.copy()
 fig, ax = plt.subplots()
 
-
-
-
-
-
-
-
 test.standard_eroder()
 
 print(np.amax(z-test.heightvalues), np.amin(z-test.heightvalues), np.amax(z))
-
 
 ax.imshow(test.heightvalues, cmap = 'gray')
 
@@ -143,6 +135,6 @@ I = test.heightvalues
 I8 = (((I - I.min()) / (I.max() - I.min())) * 255.9).astype(np.uint8)
 
 img = Image.fromarray(I8)
-img.save("examps/512x512_13.png")
+img.save("examps/512x512_26.png")
 plt.show()
 
