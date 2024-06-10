@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import numba as nb
 from auxillary_functions import *
 
-np.random.seed(2)
-
 class base_terrain_generator:
 
     def __init__(self,size_x:int, size_y:int, scale_factor:float = 1.0, height_scaling:float = 60):
@@ -100,8 +98,8 @@ class base_terrain_generator:
         self.heightvalues = array
 
     def standard_eroder(self, mass = 1.0,
-                      mu = 0.2, g = 1.0, evap_rate = 0.001, mtc = 0.2,
-                      density = 50, veloc_prop = 0.5, min_mass_ratio = 1e-3,
+                      mu = 0.2, g = 1.0, evap_rate = 0.001, mtc = 0.1,
+                      density = 100, veloc_prop = 0.5, min_mass_ratio = 1e-3,
                       dt = 0.5, max_timesteps = 6000, N_partics = 10, N_batches = 20000):
 
         self.heightvalues = all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, mass = mass,
@@ -114,8 +112,10 @@ class base_terrain_generator:
 
 test = base_terrain_generator(256,256,1.0)
 
-test.regenerate_perlin_heights(64, N_octave=3, seed = 1, luna = 0.4)
+test.regenerate_perlin_heights(64, N_octave=6, seed = 1, luna = 0.4)
 #test.add_tilt(0.05,0.02,0.01)
+
+print(test.heightvalues.max)
 
 print('Initial heightmap generated!')
 
@@ -135,6 +135,6 @@ I = test.heightvalues
 I8 = (((I - I.min()) / (I.max() - I.min())) * 255.9).astype(np.uint8)
 
 img = Image.fromarray(I8)
-img.save("examps/512x512_26.png")
+img.save("examps/512x512_30.png")
 plt.show()
 

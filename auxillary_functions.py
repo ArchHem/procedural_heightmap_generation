@@ -296,7 +296,7 @@ def trace_single_drop(heightmap, xmesh, ymesh, scale, mass,
         #perform a gaussian "spread"
         id_x00, id_y00, id_x01, id_y01, id_x10, id_y10, id_x11, id_y11, d_00, d_01, d_10, d_11 = get_neighbors(x,y,scale)
 
-        c_eq = ReLu(veloc_prop * np.sqrt(vx ** 2 + vy ** 2 + vz ** 2))
+        c_eq = ReLu(veloc_prop * np.sqrt(vx ** 2 + vy ** 2 + vz**2))
 
         cdiff = mtc * (-sediment_concentr + c_eq)
         sediment_concentr += cdiff * dt
