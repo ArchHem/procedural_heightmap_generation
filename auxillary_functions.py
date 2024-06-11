@@ -188,7 +188,7 @@ def not_in_texture(xmesh, ymesh, idx, idy):
 @nb.njit(fastmath = True, cache = True)
 def get_normal(id_x, id_y, heightmap, scale):
     d = scale
-    i2 = 1/np.sqrt(2)
+    i2 = 1/2
 
     """generate corners"""
 
@@ -293,8 +293,7 @@ def trace_single_drop(heightmap, xmesh, ymesh, scale, mass,
         vy += al_y*dt
         vz += al_z*dt
 
-        #perform a gaussian "spread"
-        id_x00, id_y00, id_x01, id_y01, id_x10, id_y10, id_x11, id_y11, d_00, d_01, d_10, d_11 = get_neighbors(x,y,scale)
+        id_x, id_y = get_closest_grid(x,y,scale)
 
         c_eq = ReLu(veloc_prop * np.sqrt(vx ** 2 + vy ** 2 + vz**2))
 
@@ -303,17 +302,7 @@ def trace_single_drop(heightmap, xmesh, ymesh, scale, mass,
 
         """might wanna introduce a bias towards the velocity of the drop"""
 
-        w00, w01, w10, w11 = np.exp(-d_00**2 / 4), np.exp(-d_01**2 / 4), np.exp(-d_10**2 / 4), np.exp(-d_11**2 / 4)
-
-        nor = w00 + w01 + w10 + w11
-
-        w00, w01, w10, w11 = w00/nor, w01/nor, w10/nor, w11/nor
-
-        # deposit sediment
-        heightmap[id_y00, id_x00] -= dt * volume * cdiff * w00
-        heightmap[id_y01, id_x01] -= dt * volume * cdiff * w01
-        heightmap[id_y10, id_x10] -= dt * volume * cdiff * w10
-        heightmap[id_y11, id_x11] -= dt * volume * cdiff * w11
+        heightmap[id_y, id_x] -= volume*cdiff*dt
 
 
 @nb.njit(fastmath = True, cache = True, parallel = True)

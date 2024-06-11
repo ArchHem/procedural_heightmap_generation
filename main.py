@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import numba as nb
 from auxillary_functions import *
+from PIL import Image
 
 class base_terrain_generator:
 
@@ -13,7 +14,7 @@ class base_terrain_generator:
         generates:
         :param height_scaling: Highest possible point of the starting texture
         :xmesh, ymesh: stores meshgrid-like coordinates of each pixel
-        :heightvalues: stores the 'height'. Internal methods assume it ranges from 0.0 to 1.0
+        :heightvalues: stores the 'height'.
         """
         xrange = np.array(range(0,size_x)) * scale_factor
         yrange = np.array(range(0,size_y)) * scale_factor
@@ -98,9 +99,9 @@ class base_terrain_generator:
         self.heightvalues = array
 
     def standard_eroder(self, mass = 1.0,
-                      mu = 0.2, g = 1.0, evap_rate = 0.001, mtc = 0.1,
+                      mu = 0.2, g = 1.0, evap_rate = 0.0025, mtc = 0.4,
                       density = 100, veloc_prop = 0.5, min_mass_ratio = 1e-3,
-                      dt = 0.5, max_timesteps = 6000, N_partics = 10, N_batches = 20000):
+                      dt = 0.6, max_timesteps = 6000, N_partics = 10, N_batches = 40000):
 
         self.heightvalues = all_erosion(self.heightvalues, self.xmesh, self.ymesh, self.scale, mass = mass,
                       mu = mu, g = g, evap_rate = evap_rate, mtc = mtc,
@@ -115,9 +116,14 @@ test = base_terrain_generator(256,256,1.0)
 test.regenerate_perlin_heights(64, N_octave=6, seed = 1, luna = 0.4)
 #test.add_tilt(0.05,0.02,0.01)
 
-print(test.heightvalues.max)
+"""test.heightvalues = test.heightvalues**2 / 60"""
 
 print('Initial heightmap generated!')
+I = test.heightvalues
+I8 = (((I - I.min()) / (I.max() - I.min())) * 255.9).astype(np.uint8)
+
+img = Image.fromarray(I8)
+img.save("examps/512x512_33_OG.png")
 
 plt.imshow(test.heightvalues, cmap = 'gray')
 z = test.heightvalues.copy()
@@ -129,12 +135,14 @@ print(np.amax(z-test.heightvalues), np.amin(z-test.heightvalues), np.amax(z))
 
 ax.imshow(test.heightvalues, cmap = 'gray')
 
-from PIL import Image
+
 
 I = test.heightvalues
 I8 = (((I - I.min()) / (I.max() - I.min())) * 255.9).astype(np.uint8)
 
 img = Image.fromarray(I8)
-img.save("examps/512x512_30.png")
+
+
+img.save("examps/512x512_33.png")
 plt.show()
 
